@@ -26,16 +26,40 @@ const costModal = document.getElementById('costModal');
 const taskForm = document.getElementById('taskForm');
 const costForm = document.getElementById('costForm');
 
-// === LOGIN ===
+// === 2FA & LOGIN ===
+let requires2FA = false;
+let setupMode = false;
+
+// Check 2FA status al cargar
+async function check2FAStatus() {
+  try {
+    const res = await fetch(`${API_URL}/api/2fa/status`);
+    const data = await res.json();
+    requires2FA = data.configured;
+    
+    // Mostrar/ocultar campo de token
+    const tokenField = document.getElementById('tokenField');
+    if (tokenField) {
+      tokenField.style.display = requires2FA ? 'block' : 'none';
+    }
+  } catch (err) {
+    console.error('Error checking 2FA:', err);
+  }
+}
+
+check2FAStatus();
+
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const password = passwordInput.value;
+  const tokenInput = document.getElementById('tokenInput');
+  const token = tokenInput ? tokenInput.value : '';
   
   try {
     const res = await fetch(`${API_URL}/api/auth`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
+      body: JSON.stringify({ password, token })
     });
     
     const data = await res.json();
@@ -43,11 +67,24 @@ loginForm.addEventListener('submit', async (e) => {
     if (data.ok) {
       accessPassword = password;
       localStorage.setItem('lentejoControl_password', password);
+      
+      // Si no tiene 2FA configurado, ofrecer setup
+      if (!data.requires2FA && !setupMode) {
+        showSetup2FA(password);
+        return;
+      }
+      
       loginScreen.style.display = 'none';
       dashboard.style.display = 'block';
       loadDashboard();
     } else {
-      showLoginError('Contraseña incorrecta');
+      if (data.requires2FA && !token) {
+        showLoginError('Se requiere código 2FA');
+        const tokenField = document.getElementById('tokenField');
+        if (tokenField) tokenField.style.display = 'block';
+      } else {
+        showLoginError(data.error || 'Autenticación fallida');
+      }
     }
   } catch (err) {
     showLoginError('Error de conexión');
@@ -60,6 +97,74 @@ function showLoginError(msg) {
   setTimeout(() => {
     loginError.style.display = 'none';
   }, 3000);
+}
+
+// Mostrar setup de 2FA
+async function showSetup2FA(password) {
+  try {
+    const res = await fetch(`${API_URL}/api/2fa/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    
+    const data = await res.json();
+    
+    if (data.ok) {
+      const setupContainer = document.createElement('div');
+      setupContainer.className = 'setup-2fa-container';
+      setupContainer.innerHTML = `
+        <div class="setup-2fa-card">
+          <h2>🔒 Configurar 2FA</h2>
+          <p class="setup-subtitle">Escanea este QR con Google Authenticator o Authy</p>
+          
+          <div class="qr-container">
+            <img src="${data.qrCode}" alt="QR Code" class="qr-image">
+          </div>
+          
+          <div class="secret-manual">
+            <p><strong>O introduce manualmente:</strong></p>
+            <code class="secret-code">${data.secret}</code>
+          </div>
+          
+          <div class="backup-codes">
+            <h3>📝 Códigos de Respaldo</h3>
+            <p class="backup-warning">⚠️ Guarda estos códigos en un lugar seguro. Cada uno solo se puede usar una vez.</p>
+            <div class="codes-grid">
+              ${data.backupCodes.map(code => `<code class="backup-code">${code}</code>`).join('')}
+            </div>
+          </div>
+          
+          <div class="setup-actions">
+            <button id="skipSetup" class="btn-secondary">Omitir (no recomendado)</button>
+            <button id="confirmSetup" class="btn-primary">He guardado los códigos ✓</button>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(setupContainer);
+      
+      // Handlers
+      document.getElementById('skipSetup').onclick = () => {
+        setupMode = true;
+        document.body.removeChild(setupContainer);
+        loginScreen.style.display = 'none';
+        dashboard.style.display = 'block';
+        loadDashboard();
+      };
+      
+      document.getElementById('confirmSetup').onclick = () => {
+        document.body.removeChild(setupContainer);
+        requires2FA = true;
+        alert('✅ 2FA configurado correctamente. Ahora necesitarás tu código al iniciar sesión.');
+        location.reload();
+      };
+    } else {
+      showLoginError(data.error || 'Error configurando 2FA');
+    }
+  } catch (err) {
+    showLoginError('Error al configurar 2FA');
+  }
 }
 
 // Auto-login si hay password guardado

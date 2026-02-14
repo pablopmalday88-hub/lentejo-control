@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs').promises;
 const path = require('path');
+const speakeasy = require('speakeasy');
+const QRCode = require('qrcode');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +18,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
 const STATUS_FILE = path.join(DATA_DIR, 'status.json');
 const COSTS_FILE = path.join(DATA_DIR, 'costs.json');
+const TOTP_FILE = path.join(DATA_DIR, '2fa-secret.json');
 
 // Middleware de autenticación
 function authMiddleware(req, res, next) {
@@ -65,9 +68,31 @@ async function initData() {
       };
       await fs.writeFile(COSTS_FILE, JSON.stringify(initialCosts, null, 2));
     }
+    
+    // 2FA Secret (no se crea automáticamente, se genera en setup)
+    try {
+      await fs.access(TOTP_FILE);
+    } catch {
+      // No existe, se creará en el primer setup
+    }
   } catch (err) {
     console.error('Error inicializando datos:', err);
   }
+}
+
+// Helper: leer 2FA secret
+async function get2FASecret() {
+  try {
+    const data = await fs.readFile(TOTP_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+// Helper: guardar 2FA secret
+async function save2FASecret(secret, backup) {
+  await fs.writeFile(TOTP_FILE, JSON.stringify({ secret, backup, createdAt: new Date().toISOString() }, null, 2));
 }
 
 // === ENDPOINTS ===
@@ -249,14 +274,102 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
   }
 });
 
-// Auth (para login)
-app.post('/api/auth', (req, res) => {
+// === 2FA ENDPOINTS ===
+
+// Check si 2FA está configurado
+app.get('/api/2fa/status', async (req, res) => {
+  const secret = await get2FASecret();
+  res.json({ configured: !!secret });
+});
+
+// Setup inicial de 2FA (genera QR)
+app.post('/api/2fa/setup', async (req, res) => {
   const { password } = req.body;
-  if (password === ACCESS_PASSWORD) {
-    res.json({ ok: true });
-  } else {
-    res.status(401).json({ ok: false, error: 'Invalid password' });
+  
+  // Verificar password primero
+  if (password !== ACCESS_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid password' });
   }
+  
+  // Verificar si ya está configurado
+  const existing = await get2FASecret();
+  if (existing) {
+    return res.status(400).json({ error: '2FA already configured' });
+  }
+  
+  try {
+    // Generar secret
+    const secret = speakeasy.generateSecret({
+      name: 'Lentejo Control',
+      issuer: 'Lentejo'
+    });
+    
+    // Generar códigos de backup (10)
+    const backupCodes = Array.from({ length: 10 }, () => 
+      Math.random().toString(36).substring(2, 10).toUpperCase()
+    );
+    
+    // Guardar secret y backups
+    await save2FASecret(secret.base32, backupCodes);
+    
+    // Generar QR code
+    const qrCode = await QRCode.toDataURL(secret.otpauth_url);
+    
+    res.json({
+      ok: true,
+      qrCode,
+      secret: secret.base32,
+      backupCodes
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auth (login con password + 2FA)
+app.post('/api/auth', async (req, res) => {
+  const { password, token } = req.body;
+  
+  // Verificar password
+  if (password !== ACCESS_PASSWORD) {
+    return res.status(401).json({ ok: false, error: 'Invalid password' });
+  }
+  
+  // Verificar si 2FA está configurado
+  const secretData = await get2FASecret();
+  
+  if (!secretData) {
+    // 2FA no configurado, permitir login solo con password
+    return res.json({ ok: true, requires2FA: false });
+  }
+  
+  // 2FA configurado, verificar token
+  if (!token) {
+    return res.status(401).json({ ok: false, error: 'Token required', requires2FA: true });
+  }
+  
+  // Verificar TOTP
+  const verified = speakeasy.totp.verify({
+    secret: secretData.secret,
+    encoding: 'base32',
+    token: token,
+    window: 2 // Permitir 2 ventanas de tiempo (±60s)
+  });
+  
+  if (verified) {
+    return res.json({ ok: true, requires2FA: true });
+  }
+  
+  // Si no es TOTP válido, verificar códigos de backup
+  if (secretData.backup && secretData.backup.includes(token.toUpperCase())) {
+    // Código de backup válido, removerlo
+    secretData.backup = secretData.backup.filter(code => code !== token.toUpperCase());
+    await save2FASecret(secretData.secret, secretData.backup);
+    
+    return res.json({ ok: true, requires2FA: true, usedBackup: true });
+  }
+  
+  return res.status(401).json({ ok: false, error: 'Invalid token' });
 });
 
 // Iniciar servidor
