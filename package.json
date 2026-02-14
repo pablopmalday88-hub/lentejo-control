@@ -1,0 +1,27 @@
+{
+  "name": "lentejo-control",
+  "version": "1.0.0",
+  "description": "🐕 Lentejo Control - Mission Control para tu asistente IA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "ai",
+    "dashboard",
+    "mission-control",
+    "lentejo",
+    "openclaw"
+  ],
+  "author": "Lentejo",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.1",
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

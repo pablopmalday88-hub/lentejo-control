@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐕 Lentejo Control</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-container">
+    <div class="login-card">
+      <div class="logo-circle">
+        <div class="logo-glow"></div>
+        <div class="logo-text">🐕</div>
+      </div>
+      <h1 class="login-title">Lentejo Control</h1>
+      <p class="login-subtitle">Mission Control</p>
+      
+      <form id="loginForm" class="login-form">
+        <input 
+          type="password" 
+          id="password" 
+          placeholder="Contraseña" 
+          class="login-input"
+          autocomplete="off"
+        />
+        <button type="submit" class="login-button">Entrar</button>
+      </form>
+      
+      <div id="loginError" class="login-error" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div id="dashboard" class="dashboard" style="display:none;">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <span class="logo-mini">🐕</span>
+        <h1 class="header-title">Lentejo Control</h1>
+      </div>
+      <div class="header-right">
+        <button id="refreshBtn" class="btn-icon" title="Refresh">🔄</button>
+        <button id="settingsBtn" class="btn-icon" title="Settings">⚙️</button>
+        <button id="logoutBtn" class="btn-icon" title="Logout">🚪</button>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="overview">
+        <span class="tab-icon">📊</span>
+        <span class="tab-label">Overview</span>
+        <span id="tasksCount" class="tab-badge">0</span>
+      </button>
+      <button class="tab" data-tab="tasks">
+        <span class="tab-icon">✅</span>
+        <span class="tab-label">Tasks</span>
+        <span id="tasksBadge" class="tab-badge">0</span>
+      </button>
+      <button class="tab" data-tab="costs">
+        <span class="tab-icon">💰</span>
+        <span class="tab-label">Costs</span>
+        <span id="costsBadge" class="tab-badge">0€</span>
+      </button>
+      <button class="tab" data-tab="agents">
+        <span class="tab-icon">🤖</span>
+        <span class="tab-label">Agents</span>
+        <span class="tab-badge">6</span>
+      </button>
+    </nav>
+
+    <!-- Tab Content -->
+    <div class="content">
+      <!-- Overview Tab -->
+      <div id="overviewTab" class="tab-content active">
+        <!-- Real-time Status -->
+        <section class="card status-card">
+          <h2 class="card-title">⚡ Status en Tiempo Real</h2>
+          <div class="status-grid">
+            <div class="status-item">
+              <span id="statusIndicator" class="status-dot active"></span>
+              <span id="statusText">Active</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Working on:</span>
+              <span id="currentTask" class="status-value">-</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Next heartbeat:</span>
+              <span id="nextHeartbeat" class="status-value">-</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">Bandwidth:</span>
+              <div class="bandwidth-bar">
+                <div id="bandwidthFill" class="bandwidth-fill" style="width: 0%"></div>
+                <span id="bandwidthText" class="bandwidth-text">0%</span>
+              </div>
+            </div>
+          </div>
+          <div class="status-costs">
+            <div class="cost-item">
+              <span class="cost-label">Cost today:</span>
+              <span id="costToday" class="cost-value">0.00€</span>
+            </div>
+            <div class="cost-item">
+              <span class="cost-label">This month:</span>
+              <span id="costMonth" class="cost-value">0.00€</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Kanban Workshop -->
+        <section class="card kanban-card">
+          <div class="card-header">
+            <h2 class="card-title">🎯 Workshop</h2>
+            <button id="newTaskBtn" class="btn-primary-small">+ Nueva Tarea</button>
+          </div>
+          <div class="kanban-board">
+            <div class="kanban-column">
+              <h3 class="column-title">Queue <span id="queueCount" class="column-count">0</span></h3>
+              <div id="queueTasks" class="task-list"></div>
+            </div>
+            <div class="kanban-column">
+              <h3 class="column-title">In Progress <span id="progressCount" class="column-count">0</span></h3>
+              <div id="progressTasks" class="task-list"></div>
+            </div>
+            <div class="kanban-column">
+              <h3 class="column-title">Done <span id="doneCount" class="column-count">0</span></h3>
+              <div id="doneTasks" class="task-list"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Tasks Tab -->
+      <div id="tasksTab" class="tab-content">
+        <section class="card">
+          <div class="card-header">
+            <h2 class="card-title">✅ Todas las Tareas</h2>
+            <button id="newTaskBtn2" class="btn-primary-small">+ Nueva Tarea</button>
+          </div>
+          <div id="allTasksList" class="all-tasks-list"></div>
+        </section>
+      </div>
+
+      <!-- Costs Tab -->
+      <div id="costsTab" class="tab-content">
+        <section class="card">
+          <h2 class="card-title">💰 Cost Tracking</h2>
+          <div class="costs-summary">
+            <div class="cost-stat">
+              <span class="cost-stat-value" id="costTodayLarge">0.00€</span>
+              <span class="cost-stat-label">Hoy</span>
+            </div>
+            <div class="cost-stat">
+              <span class="cost-stat-value" id="costMonthLarge">0.00€</span>
+              <span class="cost-stat-label">Este mes</span>
+            </div>
+            <div class="cost-stat">
+              <span class="cost-stat-value" id="apiCallsCount">0</span>
+              <span class="cost-stat-label">Llamadas hoy</span>
+            </div>
+          </div>
+          <button id="addCostBtn" class="btn-primary-small">+ Registrar Coste</button>
+          <div id="costsHistory" class="costs-history"></div>
+        </section>
+      </div>
+
+      <!-- Agents Tab -->
+      <div id="agentsTab" class="tab-content">
+        <section class="card">
+          <h2 class="card-title">🤖 Sub-Agents</h2>
+          <div class="agents-grid">
+            <div class="agent-card">
+              <span class="agent-icon">🐕</span>
+              <h3>Lentejo Core</h3>
+              <p>Asistente principal</p>
+              <span class="agent-status active">Active</span>
+            </div>
+            <div class="agent-card">
+              <span class="agent-icon">🔍</span>
+              <h3>Scout</h3>
+              <p>Intelligence Feed</p>
+              <span class="agent-status planned">Planned</span>
+            </div>
+            <div class="agent-card">
+              <span class="agent-icon">🛠️</span>
+              <h3>Builder</h3>
+              <p>Apps bajo demanda</p>
+              <span class="agent-status planned">Planned</span>
+            </div>
+            <div class="agent-card">
+              <span class="agent-icon">📊</span>
+              <h3>Analyst</h3>
+              <p>Métricas y costos</p>
+              <span class="agent-status planned">Planned</span>
+            </div>
+            <div class="agent-card">
+              <span class="agent-icon">✍️</span>
+              <h3>Content</h3>
+              <p>Twitter, LinkedIn, Whop</p>
+              <span class="agent-status planned">Planned</span>
+            </div>
+            <div class="agent-card">
+              <span class="agent-icon">🛡️</span>
+              <h3>Guardian</h3>
+              <p>Seguridad y backups</p>
+              <span class="agent-status planned">Planned</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Nueva Tarea -->
+  <div id="taskModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Nueva Tarea</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="taskForm">
+        <input type="text" id="taskTitle" placeholder="Título" required class="input">
+        <textarea id="taskDescription" placeholder="Descripción (opcional)" class="input textarea"></textarea>
+        <select id="taskPriority" class="input">
+          <option value="low">Baja</option>
+          <option value="medium" selected>Media</option>
+          <option value="high">Alta</option>
+        </select>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="cancelTask">Cancelar</button>
+          <button type="submit" class="btn-primary">Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Añadir Coste -->
+  <div id="costModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Registrar Coste</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <form id="costForm">
+        <input type="text" id="costApi" placeholder="API (ej: OpenAI, Railway)" required class="input">
+        <input type="number" id="costAmount" placeholder="Coste (€)" step="0.01" required class="input">
+        <input type="text" id="costDescription" placeholder="Descripción (opcional)" class="input">
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="cancelCost">Cancelar</button>
+          <button type="submit" class="btn-primary">Registrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
