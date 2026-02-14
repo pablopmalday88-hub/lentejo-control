@@ -799,6 +799,60 @@ body {
   color: #48bb78;
 }
 
+/* Icons & Logo */
+.logo-image {
+  width: 80px;
+  height: 80px;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 0 20px rgba(77, 209, 197, 0.5));
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.logo-mini {
+  width: 32px;
+  height: 32px;
+  filter: drop-shadow(0 0 8px rgba(77, 209, 197, 0.4));
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+}
+
+.btn-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.tab-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.title-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  margin-top: -2px;
+}
+
+.agent-icon {
+  width: 48px;
+  height: 48px;
+  display: block;
+  margin: 0 auto 12px;
+  filter: drop-shadow(0 0 10px rgba(77, 209, 197, 0.3));
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .header {

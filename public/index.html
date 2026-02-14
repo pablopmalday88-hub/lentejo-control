@@ -3,16 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🐕 Lentejo Control</title>
+  <title>Lentejo Control</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Icons sprite -->
+  <div style="display: none;">
+    <object type="image/svg+xml" data="icons.svg"></object>
+  </div>
+
   <!-- Login Screen -->
   <div id="loginScreen" class="login-container">
     <div class="login-card">
       <div class="logo-circle">
         <div class="logo-glow"></div>
-        <div class="logo-text">🐕</div>
+        <img src="logo.svg" alt="Lentejo" class="logo-image">
       </div>
       <h1 class="login-title">Lentejo Control</h1>
       <p class="login-subtitle">Mission Control</p>
@@ -37,35 +42,41 @@
     <!-- Header -->
     <header class="header">
       <div class="header-left">
-        <span class="logo-mini">🐕</span>
+        <img src="logo.svg" alt="Lentejo" class="logo-mini">
         <h1 class="header-title">Lentejo Control</h1>
       </div>
       <div class="header-right">
-        <button id="refreshBtn" class="btn-icon" title="Refresh">🔄</button>
-        <button id="settingsBtn" class="btn-icon" title="Settings">⚙️</button>
-        <button id="logoutBtn" class="btn-icon" title="Logout">🚪</button>
+        <button id="refreshBtn" class="btn-icon" title="Refresh">
+          <svg class="icon"><use href="icons.svg#icon-refresh"/></svg>
+        </button>
+        <button id="settingsBtn" class="btn-icon" title="Settings">
+          <svg class="icon"><use href="icons.svg#icon-settings"/></svg>
+        </button>
+        <button id="logoutBtn" class="btn-icon" title="Logout">
+          <svg class="icon"><use href="icons.svg#icon-logout"/></svg>
+        </button>
       </div>
     </header>
 
     <!-- Tabs -->
     <nav class="tabs">
       <button class="tab active" data-tab="overview">
-        <span class="tab-icon">📊</span>
+        <svg class="tab-icon"><use href="icons.svg#icon-overview"/></svg>
         <span class="tab-label">Overview</span>
         <span id="tasksCount" class="tab-badge">0</span>
       </button>
       <button class="tab" data-tab="tasks">
-        <span class="tab-icon">✅</span>
+        <svg class="tab-icon"><use href="icons.svg#icon-tasks"/></svg>
         <span class="tab-label">Tasks</span>
         <span id="tasksBadge" class="tab-badge">0</span>
       </button>
       <button class="tab" data-tab="costs">
-        <span class="tab-icon">💰</span>
+        <svg class="tab-icon"><use href="icons.svg#icon-costs"/></svg>
         <span class="tab-label">Costs</span>
         <span id="costsBadge" class="tab-badge">0€</span>
       </button>
       <button class="tab" data-tab="agents">
-        <span class="tab-icon">🤖</span>
+        <svg class="tab-icon"><use href="icons.svg#icon-agents"/></svg>
         <span class="tab-label">Agents</span>
         <span class="tab-badge">6</span>
       </button>
@@ -77,7 +88,10 @@
       <div id="overviewTab" class="tab-content active">
         <!-- Real-time Status -->
         <section class="card status-card">
-          <h2 class="card-title">⚡ Status en Tiempo Real</h2>
+          <h2 class="card-title">
+            <svg class="title-icon"><use href="icons.svg#icon-status"/></svg>
+            Status en Tiempo Real
+          </h2>
           <div class="status-grid">
             <div class="status-item">
               <span id="statusIndicator" class="status-dot active"></span>
@@ -114,7 +128,10 @@
         <!-- Kanban Workshop -->
         <section class="card kanban-card">
           <div class="card-header">
-            <h2 class="card-title">🎯 Workshop</h2>
+            <h2 class="card-title">
+              <svg class="title-icon"><use href="icons.svg#icon-workshop"/></svg>
+              Workshop
+            </h2>
             <button id="newTaskBtn" class="btn-primary-small">+ Nueva Tarea</button>
           </div>
           <div class="kanban-board">
@@ -138,7 +155,10 @@
       <div id="tasksTab" class="tab-content">
         <section class="card">
           <div class="card-header">
-            <h2 class="card-title">✅ Todas las Tareas</h2>
+            <h2 class="card-title">
+              <svg class="title-icon"><use href="icons.svg#icon-tasks"/></svg>
+              Todas las Tareas
+            </h2>
             <button id="newTaskBtn2" class="btn-primary-small">+ Nueva Tarea</button>
           </div>
           <div id="allTasksList" class="all-tasks-list"></div>
@@ -148,7 +168,10 @@
       <!-- Costs Tab -->
       <div id="costsTab" class="tab-content">
         <section class="card">
-          <h2 class="card-title">💰 Cost Tracking</h2>
+          <h2 class="card-title">
+            <svg class="title-icon"><use href="icons.svg#icon-costs"/></svg>
+            Cost Tracking
+          </h2>
           <div class="costs-summary">
             <div class="cost-stat">
               <span class="cost-stat-value" id="costTodayLarge">0.00€</span>
@@ -171,40 +194,43 @@
       <!-- Agents Tab -->
       <div id="agentsTab" class="tab-content">
         <section class="card">
-          <h2 class="card-title">🤖 Sub-Agents</h2>
+          <h2 class="card-title">
+            <svg class="title-icon"><use href="icons.svg#icon-agents"/></svg>
+            Sub-Agents
+          </h2>
           <div class="agents-grid">
             <div class="agent-card">
-              <span class="agent-icon">🐕</span>
+              <img src="logo.svg" alt="Lentejo Core" class="agent-icon">
               <h3>Lentejo Core</h3>
               <p>Asistente principal</p>
               <span class="agent-status active">Active</span>
             </div>
             <div class="agent-card">
-              <span class="agent-icon">🔍</span>
+              <svg class="agent-icon"><use href="icons.svg#icon-scout"/></svg>
               <h3>Scout</h3>
               <p>Intelligence Feed</p>
               <span class="agent-status planned">Planned</span>
             </div>
             <div class="agent-card">
-              <span class="agent-icon">🛠️</span>
+              <svg class="agent-icon"><use href="icons.svg#icon-builder"/></svg>
               <h3>Builder</h3>
               <p>Apps bajo demanda</p>
               <span class="agent-status planned">Planned</span>
             </div>
             <div class="agent-card">
-              <span class="agent-icon">📊</span>
+              <svg class="agent-icon"><use href="icons.svg#icon-analyst"/></svg>
               <h3>Analyst</h3>
               <p>Métricas y costos</p>
               <span class="agent-status planned">Planned</span>
             </div>
             <div class="agent-card">
-              <span class="agent-icon">✍️</span>
+              <svg class="agent-icon"><use href="icons.svg#icon-content"/></svg>
               <h3>Content</h3>
               <p>Twitter, LinkedIn, Whop</p>
               <span class="agent-status planned">Planned</span>
             </div>
             <div class="agent-card">
-              <span class="agent-icon">🛡️</span>
+              <svg class="agent-icon"><use href="icons.svg#icon-guardian"/></svg>
               <h3>Guardian</h3>
               <p>Seguridad y backups</p>
               <span class="agent-status planned">Planned</span>
