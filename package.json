@@ -4,8 +4,7 @@
   "description": "🐕 Lentejo Control - Mission Control para tu asistente IA",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
   "keywords": [
     "ai",
