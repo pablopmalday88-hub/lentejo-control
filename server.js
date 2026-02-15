@@ -4,10 +4,31 @@ const fs = require('fs').promises;
 const path = require('path');
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
+const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ACCESS_PASSWORD = process.env.ACCESS_PASSWORD || 'Aldesplume10#';
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '6084440666';
+
+// Security headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
 
 app.use(cors());
 app.use(express.json());
@@ -19,6 +40,7 @@ const TASKS_FILE = path.join(DATA_DIR, 'tasks.json');
 const STATUS_FILE = path.join(DATA_DIR, 'status.json');
 const COSTS_FILE = path.join(DATA_DIR, 'costs.json');
 const TOTP_FILE = path.join(DATA_DIR, '2fa-secret.json');
+const AUDIT_FILE = path.join(DATA_DIR, 'audit-log.jsonl');
 
 // Middleware de autenticación
 function authMiddleware(req, res, next) {
@@ -94,6 +116,50 @@ async function get2FASecret() {
 async function save2FASecret(secret, backup) {
   await fs.writeFile(TOTP_FILE, JSON.stringify({ secret, backup, createdAt: new Date().toISOString() }, null, 2));
 }
+
+// Helper: audit log (JSONL append)
+async function logAudit(event, data = {}) {
+  const entry = {
+    timestamp: new Date().toISOString(),
+    event,
+    ...data
+  };
+  const line = JSON.stringify(entry) + '\n';
+  await fs.appendFile(AUDIT_FILE, line, 'utf-8').catch(() => {});
+}
+
+// Helper: notificación Telegram
+async function notifyTelegram(message) {
+  if (!TELEGRAM_CHAT_ID) return;
+  
+  try {
+    const fetch = (await import('node-fetch')).default;
+    // Usar la OpenClaw local CLI (si está disponible) o API directa
+    // Por simplicidad, usamos execSync para llamar a openclaw message
+    const { execSync } = require('child_process');
+    execSync(`openclaw message send --channel telegram --target ${TELEGRAM_CHAT_ID} --message "${message.replace(/"/g, '\\"')}"`, {
+      stdio: 'ignore',
+      timeout: 5000
+    });
+  } catch (err) {
+    console.error('Error enviando notificación Telegram:', err);
+  }
+}
+
+// Rate limiter para login (5 intentos por 15 minutos)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // 5 intentos
+  message: { ok: false, error: 'Demasiados intentos. Espera 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: async (req, res) => {
+    const ip = req.ip || req.connection.remoteAddress;
+    await logAudit('rate_limit_exceeded', { ip, endpoint: req.path });
+    await notifyTelegram(`🚨 ALERTA: Rate limit excedido desde IP ${ip}`);
+    res.status(429).json({ ok: false, error: 'Demasiados intentos. Espera 15 minutos.' });
+  }
+});
 
 // === ENDPOINTS ===
 
@@ -274,6 +340,21 @@ app.get('/api/stats', authMiddleware, async (req, res) => {
   }
 });
 
+// === AUDIT LOG ENDPOINT ===
+
+// Ver últimos eventos de audit (requiere auth)
+app.get('/api/audit', authMiddleware, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 50;
+    const data = await fs.readFile(AUDIT_FILE, 'utf-8').catch(() => '');
+    const lines = data.trim().split('\n').filter(Boolean);
+    const events = lines.slice(-limit).map(line => JSON.parse(line)).reverse();
+    res.json({ events, total: lines.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // === 2FA ENDPOINTS ===
 
 // Check si 2FA está configurado
@@ -326,12 +407,25 @@ app.post('/api/2fa/setup', async (req, res) => {
   }
 });
 
-// Auth (login con password + 2FA)
-app.post('/api/auth', async (req, res) => {
+// Auth (login con password + 2FA) - CON RATE LIMITING
+app.post('/api/auth', loginLimiter, async (req, res) => {
   const { password, token } = req.body;
+  const ip = req.ip || req.connection.remoteAddress;
+  const userAgent = req.headers['user-agent'] || 'Unknown';
+  
+  // Constant-time password comparison (mitigar timing attacks)
+  const crypto = require('crypto');
+  const passwordBuffer = Buffer.from(password || '');
+  const expectedBuffer = Buffer.from(ACCESS_PASSWORD);
+  
+  let passwordValid = false;
+  if (passwordBuffer.length === expectedBuffer.length) {
+    passwordValid = crypto.timingSafeEqual(passwordBuffer, expectedBuffer);
+  }
   
   // Verificar password
-  if (password !== ACCESS_PASSWORD) {
+  if (!passwordValid) {
+    await logAudit('login_failed', { ip, userAgent, reason: 'invalid_password' });
     return res.status(401).json({ ok: false, error: 'Invalid password' });
   }
   
@@ -340,6 +434,8 @@ app.post('/api/auth', async (req, res) => {
   
   if (!secretData) {
     // 2FA no configurado, permitir login solo con password
+    await logAudit('login_success', { ip, userAgent, twoFA: false });
+    await notifyTelegram(`✅ Login exitoso\n🌐 IP: ${ip}\n📱 Device: ${userAgent.substring(0, 50)}\n🔒 2FA: No configurado`);
     return res.json({ ok: true, requires2FA: false });
   }
   
@@ -357,6 +453,8 @@ app.post('/api/auth', async (req, res) => {
   });
   
   if (verified) {
+    await logAudit('login_success', { ip, userAgent, twoFA: true, method: 'totp' });
+    await notifyTelegram(`✅ Login exitoso\n🌐 IP: ${ip}\n📱 Device: ${userAgent.substring(0, 50)}\n🔒 2FA: TOTP`);
     return res.json({ ok: true, requires2FA: true });
   }
   
@@ -366,9 +464,14 @@ app.post('/api/auth', async (req, res) => {
     secretData.backup = secretData.backup.filter(code => code !== token.toUpperCase());
     await save2FASecret(secretData.secret, secretData.backup);
     
+    await logAudit('login_success', { ip, userAgent, twoFA: true, method: 'backup_code' });
+    await notifyTelegram(`⚠️ Login con código de respaldo\n🌐 IP: ${ip}\n📱 Device: ${userAgent.substring(0, 50)}\n🔒 Códigos restantes: ${secretData.backup.length}`);
+    
     return res.json({ ok: true, requires2FA: true, usedBackup: true });
   }
   
+  // Token inválido
+  await logAudit('login_failed', { ip, userAgent, reason: 'invalid_token' });
   return res.status(401).json({ ok: false, error: 'Invalid token' });
 });
 
